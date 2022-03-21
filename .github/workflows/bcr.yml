@@ -1,0 +1,57 @@
+# Create a pull request to update the bazel central registry
+# when a new release has been cut.
+name: BCR
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  pull-request:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+      - run: pwd
+      - run: ls
+      - name: Checkout this repo to access scripts
+        uses: actions/checkout@v2
+      - name: Checkout the released version of this repo
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ env.GITHUB_REF }}
+          path: project
+      - run: pwd
+      - name: Checkout bcr
+        uses: actions/checkout@v2
+        with:
+          #TODO: change to bazelbuild
+          # token: ${{ secrets.POST_PR_TOKEN }}
+          repository: kormide/bazel-central-registry
+          path: bcr
+      - run: pwd
+      # - name: Create a new bcr branch
+      #   working-directory: bcr
+      #   run: git checkout -b "$GITHUB_REPOSITORY@${{ steps.get_version.outputs.VERSION }}"
+      - run: pwd
+      - run: ls -la project
+      - run: ls -la
+      - name: Create bcr entry
+        run: node .github/workflows/create-bcr-entry.mjs project bcr ${{ steps.get_version.outputs.VERSION }}
+      # - name: Commit bcr entry
+      #   working-directory: bcr
+      #   run: git commit -am "$GITHUB_REPOSITORY@${{ steps.get_version.outputs.VERSION }}"
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.POST_PR_TOKEN }}
+          path: bcr
+          commit-message: $GITHUB_REPOSITORY@${{ steps.get_version.outputs.VERSION }}
+          branch: $GITHUB_REPOSITORY@${{ steps.get_version.outputs.VERSION }}
+          title: $GITHUB_REPOSITORY@${{ steps.get_version.outputs.VERSION }}
+          author: Derek Cormier <derek@aspect.dev>
+          committer: Derek Cormier <derek@aspect.dev>
