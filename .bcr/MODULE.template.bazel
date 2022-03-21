@@ -1,0 +1,9 @@
+"REPO_PLACEHOLDER"
+
+module(
+    name = "aspect_bazel_lib",
+    version = "VERSION_PLACEHOLDER",
+    compatibility_level = 0,
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.0.3")
