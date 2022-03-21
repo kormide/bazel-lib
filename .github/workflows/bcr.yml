@@ -1,0 +1,42 @@
+# Create a pull request to update the bazel central registry
+# when a new release has been cut.
+name: BCR
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  pull-request:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+      - name: Checkout this repo to access scripts
+        uses: actions/checkout@v2
+      - name: Checkout the released version of this repo
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ env.GITHUB_REF }}
+          path: project
+      - name: Checkout bcr
+        uses: actions/checkout@v2
+        with:
+          #TODO: change to bazelbuild
+          token: ${{ secrets.POST_PR_TOKEN }}
+          repository: kormide/bazel-central-registry
+          path: bcr
+      - name: Create bcr entry
+        run: node .github/workflows/create-bcr-entry.mjs project bcr $GITHUB_REPOSITORY ${{ steps.get_version.outputs.VERSION }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.POST_PR_TOKEN }}
+          path: bcr
+          commit-message: ${{ github.repository }}@${{ steps.get_version.outputs.VERSION }}
+          branch: ${{ github.repository }}@${{ steps.get_version.outputs.VERSION }}
+          title: ${{ github.repository }}@${{ steps.get_version.outputs.VERSION }}
