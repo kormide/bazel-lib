@@ -1,0 +1,9 @@
+"aspect-build/bazel-lib"
+
+module(
+    name = "aspect_bazel_lib",
+    version = "VERSION_PLACEHOLDER",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.0.3")
