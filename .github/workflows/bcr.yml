@@ -1,0 +1,69 @@
+# GitHub Actions workflow to create a pull request to update the bazel central
+# registry after a successful release.
+#
+# Usage:
+#   1. Fork bazelbuild/bazel-central-registry to your org or personal account.
+#   2. Set the workflow env variables below (see instructions for each variable).
+#   3. Update .bcr/presubmit with targets for the bcr to run. See
+#      https://docs.bazel.build/versions/main/bzlmod.html#bazel-central-registry.
+#   4. A PR will be posted from your fork to bazelbuild/bazel-central-registry
+#      with an updated module entry after a successful release.
+
+name: BCR
+
+on:
+  release:
+    types: [published]
+
+env:
+  # Fork bazelbuild/bazel-central-registry and put the name of your fork below. Branches
+  # will be pushed here and will be PR'ed against bazelbuild/bazel-central-registry
+  BCR_FORK: kormide/bazel-central-registry
+  # To post PRs you must set up a personal access token and store it in a
+  # repository secret for this repo. TODO: same workflow for orgs?
+  # Do NOT hardcode the token in this file.
+  TOKEN: ${{ secrets.POST_PR_TOKEN }}
+
+jobs:
+  pull-request:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+      - name: Checkout this repo to access scripts
+        uses: actions/checkout@v2
+      - name: Checkout the released version of this repo
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ env.GITHUB_REF }}
+          path: project
+      - name: Checkout bcr
+        uses: actions/checkout@v2
+        with:
+          #TODO: change to bazelbuild and use fork
+          token: ${{ env.TOKEN }}
+          repository: ${{ env.BCR_FORK }}
+          path: bcr
+      - name: Create bcr entry
+        run: node .github/workflows/create-bcr-entry.mjs project bcr $GITHUB_REPOSITORY ${{ steps.get_version.outputs.VERSION }}
+      - name: Create Pull Request
+        id: post_pr
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.POST_PR_TOKEN }}
+          path: bcr
+          commit-message: ${{ github.repository }}@${{ steps.get_version.outputs.VERSION }}
+          branch: ${{ github.repository }}@${{ steps.get_version.outputs.VERSION }}
+          title: ${{ github.repository }}@${{ steps.get_version.outputs.VERSION }}
+          body: |
+            [Automated] Publish ${{ github.repository }}@${{ steps.get_version.outputs.VERSION }} to bcr by [rules-template]().
+
+            Manual checks:
+            - [ ] I have checked that the version is correct.
+            - [ ] I have checked that the compatibility_level in MODULE.bazel is correct.
+      - name: Echo PR url
+        run: echo ${{ steps.post_pr.outputs.pull-request-url }}
