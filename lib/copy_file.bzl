@@ -12,12 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# LOCAL MODIFICATIONS
-# this has two PRs patched in on top of the original
-# https://github.com/bazelbuild/bazel-skylib/blob/7b859037a673db6f606661323e74c5d4751595e6/rules/private/copy_file_private.bzl
-# 1) https://github.com/bazelbuild/bazel-skylib/pull/323
-# 2) https://github.com/bazelbuild/bazel-skylib/pull/324
-
 """A rule that copies a file to another place.
 
 native.genrule() is sometimes used to copy files (often wishing to rename them).
@@ -26,7 +20,7 @@ The 'copy_file' rule does this with a simpler interface than genrule.
 The rule uses a Bash command on Linux/macOS/non-Windows, and a cmd.exe command
 on Windows (no Bash is required).
 
-This fork of bazel-skylib's copy_file adds directory support.
+This fork of bazel-skylib's copy_file adds DirectoryPathInfo support and other fixes.
 """
 
 load(

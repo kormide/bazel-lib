@@ -12,15 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# LOCAL MODIFICATIONS
-# this has two PRs patched in on top of the original
-# https://github.com/bazelbuild/bazel-skylib/blob/7b859037a673db6f606661323e74c5d4751595e6/rules/private/copy_file_private.bzl
-# 1) https://github.com/bazelbuild/bazel-skylib/pull/323
-# 2) https://github.com/bazelbuild/bazel-skylib/pull/324
-
 """Implementation of copy_file macro and underlying rules.
 
-These rules copy a file or directory to another location using Bash (on Linux/macOS) or
+These rules copy a file to another location using Bash (on Linux/macOS) or
 cmd.exe (on Windows). `_copy_xfile` marks the resulting file executable,
 `_copy_file` does not.
 """
@@ -49,16 +43,9 @@ def copy_cmd(ctx, src_file, src_path, dst):
 
     # Flags are documented at
     # https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/copy
-    # https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy
-    # NB: robocopy return non-zero exit codes on success so we must exit 0 after calling it
-    if dst.is_directory:
-        cmd_tmpl = "@robocopy \"{src}\" \"{dst}\" /E >NUL & @exit 0"
-        mnemonic = "CopyDirectory"
-        progress_message = "Copying directory %s" % src_path
-    else:
-        cmd_tmpl = "@copy /Y \"{src}\" \"{dst}\" >NUL"
-        mnemonic = "CopyFile"
-        progress_message = "Copying file %s" % src_path
+    cmd_tmpl = "@copy /Y \"{src}\" \"{dst}\" >NUL"
+    mnemonic = "CopyFile"
+    progress_message = "Copying file %s" % src_path
 
     ctx.actions.write(
         output = bat,
@@ -84,14 +71,9 @@ def copy_cmd(ctx, src_file, src_path, dst):
 
 # buildifier: disable=function-docstring
 def copy_bash(ctx, src_file, src_path, dst):
-    if dst.is_directory:
-        cmd_tmpl = "rm -rf \"$2\" && cp -fR \"$1/\" \"$2\""
-        mnemonic = "CopyDirectory"
-        progress_message = "Copying directory %s" % src_path
-    else:
-        cmd_tmpl = "cp -f \"$1\" \"$2\""
-        mnemonic = "CopyFile"
-        progress_message = "Copying file %s" % src_path
+    cmd_tmpl = "cp -f \"$1\" \"$2\""
+    mnemonic = "CopyFile"
+    progress_message = "Copying file %s" % src_path
 
     ctx.actions.run_shell(
         tools = [src_file],
@@ -105,17 +87,12 @@ def copy_bash(ctx, src_file, src_path, dst):
     )
 
 def _copy_file_impl(ctx):
-    # When creating a directory, declare that to Bazel so downstream rules
-    # see it as a TreeArtifact and handle correctly, e.g. for remote execution
-    if getattr(ctx.attr, "is_directory", False):
-        output = ctx.actions.declare_directory(ctx.attr.out)
-    else:
-        output = ctx.outputs.out
+    output = ctx.outputs.out
+    if output.is_directory:
+        fail("cannot use copy_file on a directory; try copy_directory instead")
     if ctx.attr.allow_symlink:
         if len(ctx.files.src) != 1:
             fail("src must be a single file when allow_symlink is True")
-        if output.is_directory:
-            fail("Cannot use both is_directory and allow_symlink")
         ctx.actions.symlink(
             output = output,
             target_file = ctx.files.src[0],
@@ -147,37 +124,23 @@ _ATTRS = {
     "is_windows": attr.bool(mandatory = True),
     "is_executable": attr.bool(mandatory = True),
     "allow_symlink": attr.bool(mandatory = True),
+    "out": attr.output(mandatory = True),
 }
-
-_copy_directory = rule(
-    implementation = _copy_file_impl,
-    provides = [DefaultInfo],
-    attrs = dict(_ATTRS, **{
-        "is_directory": attr.bool(default = True),
-        # Cannot declare out as an output here, because there's no API for declaring
-        # TreeArtifact outputs.
-        "out": attr.string(mandatory = True),
-    }),
-)
 
 _copy_file = rule(
     implementation = _copy_file_impl,
     provides = [DefaultInfo],
-    attrs = dict(_ATTRS, **{
-        "out": attr.output(mandatory = True),
-    }),
+    attrs = _ATTRS,
 )
 
 _copy_xfile = rule(
     implementation = _copy_file_impl,
     executable = True,
     provides = [DefaultInfo],
-    attrs = dict(_ATTRS, **{
-        "out": attr.output(mandatory = True),
-    }),
+    attrs = _ATTRS,
 )
 
-def copy_file(name, src, out, is_directory = False, is_executable = False, allow_symlink = False, **kwargs):
+def copy_file(name, src, out, is_executable = False, allow_symlink = False, **kwargs):
     """Copies a file or directory to another location.
 
     `native.genrule()` is sometimes used to copy files (often wishing to rename them). The 'copy_file' rule does this with a simpler interface than genrule.
@@ -192,11 +155,9 @@ def copy_file(name, src, out, is_directory = False, is_executable = False, allow
 
     Args:
       name: Name of the rule.
-      src: A Label. The file or directory to make a copy of.
-          (Can also be the label of a rule that generates a file or directory.)
+      src: A Label. The file to make a copy of.
+          (Can also be the label of a rule that generates a file.)
       out: Path of the output file, relative to this package.
-      is_directory: treat the source file as a directory
-          Workaround for https://github.com/bazelbuild/bazel/issues/12954
       is_executable: A boolean. Whether to make the output file executable. When
           True, the rule's output can be executed using `bazel run` and can be
           in the srcs of binary and test rules that require executable sources.
@@ -213,8 +174,6 @@ def copy_file(name, src, out, is_directory = False, is_executable = False, allow
     copy_file_impl = _copy_file
     if is_executable:
         copy_file_impl = _copy_xfile
-    elif is_directory:
-        copy_file_impl = _copy_directory
 
     copy_file_impl(
         name = name,
