@@ -155,7 +155,7 @@ jq_toolchains_repo = repository_rule(
 )
 
 def _jq_platform_repo_impl(repository_ctx):
-    is_windows = repository_ctx.attr.platform.startswith("windows_")
+    is_windows = repo_utils.is_windows_os(repository_ctx)
     meta = JQ_PLATFORMS[repository_ctx.attr.platform]
     release_platform = meta.release_platform if hasattr(meta, "release_platform") else repository_ctx.attr.platform
 
