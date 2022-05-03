@@ -18,7 +18,7 @@ name: BCR
 
 on:
   release:
-    types: [published]
+    types: [prereleased]
 
 env:
   # Bazel central registry to post a pull request to.
