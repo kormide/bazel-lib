@@ -153,9 +153,10 @@ async function stampSourceFile(
 
   // Compute the integrity hash
   const sourceJson = JSON.parse(substituted);
-  const filename = sourceJson.url.substring(
-    sourceJson.url.lastIndexOf("/") + 1
-  );
+  const filename = "archive";
+  // const filename = resolve(
+  //   sourceJson.url.substring(sourceJson.url.lastIndexOf("/") + 1)
+  // );
 
   console.log(`Downloading archive ${sourceJson.url}`);
   await download(sourceJson.url, filename);
@@ -183,9 +184,11 @@ function download(url, dest) {
     https
       .get(url, (response) => {
         response.on("data", (chunk) => {
+          console.log("chunk");
           appendFileSync(dest, chunk);
         });
         response.on("end", () => {
+          console.log("RESOLVED");
           resolve();
         });
       })
