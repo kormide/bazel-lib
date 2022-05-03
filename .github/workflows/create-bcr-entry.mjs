@@ -153,8 +153,8 @@ async function stampSourceFile(
 
   // Compute the integrity hash
   const sourceJson = JSON.parse(substituted);
-  const filename = sourceJson.url.substring(
-    sourceJson.url.lastIndexOf("/") + 1
+  const filename = path.resolve(
+    sourceJson.url.substring(sourceJson.url.lastIndexOf("/") + 1)
   );
 
   console.log(`Downloading archive ${sourceJson.url}`);
