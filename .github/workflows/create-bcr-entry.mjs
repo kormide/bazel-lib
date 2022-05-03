@@ -5,7 +5,8 @@ import {
   existsSync,
   copyFileSync,
   writeFileSync,
-  appendFileSync,
+  createWriteStream,
+  unlink,
   readdirSync,
 } from "fs";
 import https from "https";
@@ -153,9 +154,10 @@ async function stampSourceFile(
 
   // Compute the integrity hash
   const sourceJson = JSON.parse(substituted);
-  const filename = sourceJson.url.substring(
-    sourceJson.url.lastIndexOf("/") + 1
-  );
+  const filename = "archive";
+  // const filename = resolve(
+  //   sourceJson.url.substring(sourceJson.url.lastIndexOf("/") + 1)
+  // );
 
   console.log(`Downloading archive ${sourceJson.url}`);
   await download(sourceJson.url, filename);
@@ -180,18 +182,29 @@ function getVersionFromTag(version) {
 
 function download(url, dest) {
   return new Promise((resolve, reject) => {
-    https
-      .get(url, (response) => {
-        response.on("data", (chunk) => {
-          appendFileSync(dest, chunk);
+    const request = https.get(url, (response) => {
+      if (response.statusCode === 200) {
+        const file = createWriteStream(dest, { flags: "wx" });
+        file.on("finish", () => resolve());
+        file.on("error", (err) => {
+          file.close();
+          unlink(dest, () => reject(err.message));
+          reject(err);
         });
-        response.on("end", () => {
-          resolve();
-        });
-      })
-      .on("error", (err) => {
-        reject(new Error(err.message));
-      });
+        response.pipe(file);
+      } else if (response.statusCode === 302 || response.statusCode === 301) {
+        // Redirect
+        download(response.headers.location, dest).then(() => resolve());
+      } else {
+        reject(
+          `Server responded with ${response.statusCode}: ${response.statusMessage}`
+        );
+      }
+    });
+
+    request.on("error", (err) => {
+      reject(err.message);
+    });
   });
 }
 
