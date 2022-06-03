@@ -22,10 +22,10 @@ on:
 
 env:
   # Bazel central registry to post a pull request to.
-  BCR: bazelbuild/bazel-central-registry
+  BCR: aspect-build/bazel-central-registry
 
   # Fork of the bazel central registery to push the pull request branch to
-  BCR_FORK: aspect-build/bazel-central-registry
+  BCR_FORK: kormide/bazel-central-registry
 
 jobs:
   bcr-pull-request:
